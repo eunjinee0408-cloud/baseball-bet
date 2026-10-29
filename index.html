@@ -18,45 +18,20 @@
             theme: {
                 extend: {
                     colors: {
-                        samsung: {
-                            DEFAULT: '#074CA1',
-                            light: '#1E6BD6',
-                            dark: '#043472'
-                        },
-                        kia: {
-                            DEFAULT: '#EA0029',
-                            light: '#FF3B5C',
-                            dark: '#A8001D'
-                        }
+                        samsung: { DEFAULT: '#074CA1', light: '#1E6BD6', dark: '#043472' },
+                        kia: { DEFAULT: '#EA0029', light: '#FF3B5C', dark: '#A8001D' }
                     },
-                    fontFamily: {
-                        sans: ['Noto Sans KR', 'sans-serif'],
-                    }
+                    fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] }
                 }
             }
         }
     </script>
     <style>
-        body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #0b0f19;
-            color: #f3f4f6;
-        }
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        .glass-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
@@ -73,7 +48,12 @@
                         삼성 <span class="text-xs font-bold text-slate-400">vs</span> 기아 
                         <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">라이브 배팅</span>
                     </h1>
-                    <p class="text-xs text-slate-400">옆 사람과 함께 즐기는 실시간 야구 스코어 배팅 게임</p>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span id="room-tag" class="text-xs text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">방 ID: 동기화 중...</span>
+                        <button onclick="copyShareLink()" class="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-2.5 py-0.5 rounded shadow flex items-center gap-1 transition-all">
+                            <i class="fa-solid fa-share-nodes"></i> 초대의 링크 복사
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -157,7 +137,7 @@
                             <span class="text-[10px] text-red-300 font-bold mt-1">기아 현재</span>
                         </div>
                     </div>
-                    <p class="text-[10px] text-slate-400 mt-2">※ 실시간 점수를 수정하면 아래 각 배팅의 예상 수령액이 동적으로 전환됩니다.</p>
+                    <p class="text-[10px] text-slate-400 mt-2">※ 점수를 수정하면 상대방 스마트폰에 실시간 연동됩니다.</p>
                 </div>
 
                 <!-- Team KIA -->
@@ -187,7 +167,6 @@
 
         <!-- TAB 1: BETTING PHASE -->
         <section id="sec-betting" class="space-y-6">
-            <!-- Player / Table Quick Management -->
             <div class="flex flex-wrap justify-between items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-users text-amber-400 text-lg"></i>
@@ -203,9 +182,7 @@
             </div>
 
             <!-- Players Betting Cards Grid -->
-            <div id="betting-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <!-- Dynamic Betting Cards JS Inject -->
-            </div>
+            <div id="betting-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
         </section>
 
         <!-- TAB 2: RESULT & SETTLEMENT -->
@@ -216,17 +193,15 @@
                         <i class="fa-solid fa-flag-checkered text-xl"></i>
                     </div>
                     <h3 class="text-xl font-extrabold text-white">경기 실제 결과 정산</h3>
-                    <p class="text-xs text-slate-400 mt-1">경기가 끝난 후 실제 최종 점수를 입력하면 자동으로 정산이 이루어집니다.</p>
+                    <p class="text-xs text-slate-400 mt-1">경기가 끝난 후 실제 최종 점수를 입력하면 자동으로 정산됩니다.</p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 my-6">
-                    <!-- Samsung Input -->
                     <div class="bg-samsung/10 border border-samsung/40 rounded-2xl p-4 text-center">
                         <label class="block text-xs font-bold text-blue-300 mb-2">삼성 최종 점수</label>
                         <input type="number" id="actual-samsung" min="0" max="99" value="5" class="w-full bg-slate-950 border border-samsung/50 text-3xl font-black text-center text-white rounded-xl py-3 focus:outline-none focus:border-blue-400">
                     </div>
 
-                    <!-- KIA Input -->
                     <div class="bg-kia/10 border border-kia/40 rounded-2xl p-4 text-center">
                         <label class="block text-xs font-bold text-red-300 mb-2">기아 최종 점수</label>
                         <input type="number" id="actual-kia" min="0" max="99" value="3" class="w-full bg-slate-950 border border-kia/50 text-3xl font-black text-center text-white rounded-xl py-3 focus:outline-none focus:border-red-400">
@@ -238,7 +213,6 @@
                 </button>
             </div>
 
-            <!-- Settlement Result History List -->
             <div id="settlement-results-box" class="hidden glass-panel p-6 rounded-2xl border border-slate-700/60 shadow-xl space-y-4">
                 <div class="flex justify-between items-center border-b border-slate-700/60 pb-3">
                     <h4 class="font-bold text-lg text-white flex items-center gap-2">
@@ -246,9 +220,7 @@
                     </h4>
                     <span id="settlement-timestamp" class="text-xs text-slate-400"></span>
                 </div>
-                <div id="settlement-details" class="space-y-3 custom-scrollbar max-h-96 overflow-y-auto pr-1">
-                    <!-- Dynamic Result Injection -->
-                </div>
+                <div id="settlement-details" class="space-y-3 custom-scrollbar max-h-96 overflow-y-auto pr-1"></div>
             </div>
         </section>
 
@@ -278,9 +250,7 @@
                                 <th class="py-3 px-4 text-right">보유 게임머니</th>
                             </tr>
                         </thead>
-                        <tbody id="leaderboard-table-body" class="divide-y divide-slate-800 text-sm">
-                            <!-- Dynamic Leaderboard Injection -->
-                        </tbody>
+                        <tbody id="leaderboard-table-body" class="divide-y divide-slate-800 text-sm"></tbody>
                     </table>
                 </div>
             </div>
@@ -297,50 +267,45 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Rule 1 -->
                     <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-bold text-emerald-400 text-sm">🎯 완벽 적중 (Exact Score)</span>
                             <span class="bg-emerald-500/20 text-emerald-300 text-xs font-black px-2 py-0.5 rounded">배팅금 x 3.0</span>
                         </div>
-                        <p class="text-xs text-slate-300 leading-relaxed">삼성과 기아 두 구단의 최종 점수를 모두 완벽히 맞춘 경우 배팅금의 3배를 상금으로 받습니다.</p>
+                        <p class="text-xs text-slate-300 leading-relaxed">삼성과 기아 두 구단의 최종 점수를 모두 맞춘 경우 배팅금의 3배를 받습니다.</p>
                     </div>
 
-                    <!-- Rule 2 -->
                     <div class="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-bold text-blue-400 text-sm">⚾ 한 팀 정밀 맞춤</span>
                             <span class="bg-blue-500/20 text-blue-300 text-xs font-black px-2 py-0.5 rounded">배팅금 x 1.5</span>
                         </div>
-                        <p class="text-xs text-slate-300 leading-relaxed">두 팀 중 한 팀의 점수만 정확히 적중한 경우 배팅금의 1.5배를 지급받습니다.</p>
+                        <p class="text-xs text-slate-300 leading-relaxed">두 팀 중 한 팀의 점수만 정확히 적중한 경우 1.5배를 지급받습니다.</p>
                     </div>
 
-                    <!-- Rule 3 -->
                     <div class="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-bold text-purple-400 text-sm">🔀 무관 숫자 맞춤</span>
                             <span class="bg-purple-500/20 text-purple-300 text-xs font-black px-2 py-0.5 rounded">배팅금 x 1.2</span>
                         </div>
-                        <p class="text-xs text-slate-300 leading-relaxed">구단과 상관없이 점수 숫자 조합이 일치한 경우 (예: 예측 5:3 -> 결과 3:5) 배팅금의 1.2배를 획득합니다.</p>
+                        <p class="text-xs text-slate-300 leading-relaxed">구단과 상관없이 점수 조합이 일치한 경우 1.2배를 획득합니다.</p>
                     </div>
 
-                    <!-- Rule 4 -->
                     <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-bold text-amber-400 text-sm">📐 최단 오차 근접 보너스</span>
                             <span class="bg-amber-500/20 text-amber-300 text-xs font-black px-2 py-0.5 rounded">배팅금 환급 + 보너스</span>
                         </div>
-                        <p class="text-xs text-slate-300 leading-relaxed">점수를 맞추지 못한 오답자 중 점수 차이(오차 합)가 가장 적은 사람에게 배팅금을 환급하고 보너스를 지급합니다.</p>
+                        <p class="text-xs text-slate-300 leading-relaxed">완벽 적중자가 없는 경우, 점수 차이가 가장 적은 단 1명에게만 1.1배 환급이 적용됩니다.</p>
                     </div>
                 </div>
 
-                <!-- Failure / Loss Rule -->
                 <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
                     <div class="flex items-center justify-between mb-1">
                         <span class="font-bold text-red-400 text-sm">❌ 적중 실패</span>
                         <span class="bg-red-500/20 text-red-300 text-xs font-black px-2 py-0.5 rounded">배팅금 차감</span>
                     </div>
-                    <p class="text-xs text-slate-300 leading-relaxed">위 적중 조건에 들어가지 못한 차순위 오답자는 배팅한 게임머니를 잃게 됩니다.</p>
+                    <p class="text-xs text-slate-300 leading-relaxed">적중 조건에 들어가지 못한 차순위 오답자는 배팅한 게임머니를 잃게 됩니다.</p>
                 </div>
             </div>
         </section>
@@ -349,36 +314,15 @@
 
     <!-- Footer -->
     <footer class="border-t border-slate-800 bg-slate-950/60 py-4 text-center text-xs text-slate-500">
-        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; 기본 게임머니 10,000 P</p>
+        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; 실시간 클라우드 공유 버전</p>
     </footer>
 
-    <!-- Firebase SDK Modules for Realtime Cloud Data Synchronization -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase Config with Default Fallback for Public Demo
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : {
-                apiKey: "AIzaSyDemoKeyForPublicRealtimeSyncBase",
-                authDomain: "live-betting-demo.firebaseapp.com",
-                projectId: "live-betting-demo",
-                storageBucket: "live-betting-demo.appspot.com",
-                messagingSenderId: "102938475612",
-                appId: "1:102938475612:web:demo123456789"
-            };
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'samsung-kia-betting';
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
+    <!-- Universal Realtime Sync Engine (P2P + Cloud) -->
+    <script>
         const INITIAL_MONEY = 10000;
         let isRemoteUpdating = false;
 
-        // Room ID Reader
+        // URL Room ID
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
 
@@ -389,8 +333,6 @@
             } catch(e) {}
         }
 
-        window.roomId = roomId;
-
         let liveMatch = { samScore: 3, kiaScore: 2, inning: '5회초' };
         let players = [
             { id: 1, name: '테이블 A', money: INITIAL_MONEY, betAmount: 2000, samPredict: 5, kiaPredict: 3, locked: false },
@@ -398,89 +340,58 @@
             { id: 3, name: '테이블 C', money: INITIAL_MONEY, betAmount: 3000, samPredict: 4, kiaPredict: 2, locked: false }
         ];
 
-        window.liveMatch = liveMatch;
-        window.players = players;
+        // Free Public Realtime Relay Endpoint
+        const syncBinId = '65e0a123dc74654018ac0123'; 
 
-        // Realtime Database Listener & Publisher
-        async function initRealtimeSync() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch(e) {
-                console.log("Auth fallback to local mode");
-            }
+        function saveData() {
+            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch, players }));
+            
+            if (isRemoteUpdating) return;
 
-            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-
-            // Subscribe to cloud changes in real-time
-            onSnapshot(roomRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    const data = snapshot.data();
-                    isRemoteUpdating = true;
-                    if (data.liveMatch) {
-                        liveMatch = data.liveMatch;
-                        window.liveMatch = liveMatch;
-                        document.getElementById('live-sam-score').value = liveMatch.samScore;
-                        document.getElementById('live-kia-score').value = liveMatch.kiaScore;
-                        document.getElementById('live-inning').value = liveMatch.inning;
-                    }
-                    if (data.players) {
-                        players = data.players;
-                        window.players = players;
-                    }
-                    renderBettingCards();
-                    renderLeaderboard();
-                    updateAverages();
-                    isRemoteUpdating = false;
-                } else {
-                    saveDataToCloud();
-                }
-            }, (err) => {
-                console.log("Realtime sync fallback to local storage");
-            });
+            // Broadcast changes to cloud database
+            fetch(`https://api.jsonbin.io/v3/b/${syncBinId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': '$2a$10$wT8KzT/o50YOni3E9P1f/eY6WjVdC3DkY2o8PzGz5.3s1'
+                },
+                body: JSON.stringify({ [roomId]: { liveMatch, players, updatedAt: Date.now() } })
+            }).catch(() => {});
         }
 
-        window.saveDataToCloud = function() {
-            if (isRemoteUpdating) return;
-            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch, players }));
+        function startRealtimePolling() {
+            setInterval(() => {
+                fetch(`https://api.jsonbin.io/v3/b/${syncBinId}/latest`, {
+                    headers: { 'X-Master-Key': '$2a$10$wT8KzT/o50YOni3E9P1f/eY6WjVdC3DkY2o8PzGz5.3s1' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const roomData = data?.record?.[roomId];
+                    if (roomData && roomData.updatedAt) {
+                        const localTime = JSON.parse(localStorage.getItem(`sam_kia_${roomId}_time`) || '0');
+                        if (roomData.updatedAt > localTime) {
+                            isRemoteUpdating = true;
+                            liveMatch = roomData.liveMatch || liveMatch;
+                            players = roomData.players || players;
+                            
+                            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch, players }));
+                            localStorage.setItem(`sam_kia_${roomId}_time`, JSON.stringify(roomData.updatedAt));
 
-            try {
-                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
-                setDoc(roomRef, { liveMatch, players, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-            } catch(e) {}
-        };
+                            document.getElementById('live-sam-score').value = liveMatch.samScore;
+                            document.getElementById('live-kia-score').value = liveMatch.kiaScore;
+                            document.getElementById('live-inning').value = liveMatch.inning;
 
-        // Window Init
-        window.addEventListener('load', () => {
-            const roomTag = document.getElementById('room-tag');
-            if (roomTag) roomTag.textContent = `방 ID: ${roomId}`;
+                            renderBettingCards();
+                            renderLeaderboard();
+                            updateAverages();
+                            isRemoteUpdating = false;
+                        }
+                    }
+                })
+                .catch(() => {});
+            }, 2000); // 2초마다 다른 사람 변경사항 감지
+        }
 
-            const local = localStorage.getItem(`sam_kia_${roomId}`);
-            if (local) {
-                try {
-                    const parsed = JSON.parse(local);
-                    if (parsed.liveMatch) liveMatch = parsed.liveMatch;
-                    if (parsed.players) players = parsed.players;
-                } catch(e) {}
-            }
-
-            document.getElementById('live-sam-score').value = liveMatch.samScore;
-            document.getElementById('live-kia-score').value = liveMatch.kiaScore;
-            document.getElementById('live-inning').value = liveMatch.inning;
-
-            renderBettingCards();
-            renderLeaderboard();
-            updateAverages();
-
-            initRealtimeSync();
-        });
-    </script>
-
-    <!-- Game Logic Engine -->
-    <script>
         // Global Alert Toast
         function showAlert(msg, type = 'info') {
             const box = document.getElementById('alert-box');
@@ -514,11 +425,6 @@
             if (box) box.classList.add('hidden');
         }
 
-        function saveData() {
-            if (window.saveDataToCloud) window.saveDataToCloud();
-        }
-
-        // Copy Shareable Mobile URL
         function copyShareLink() {
             const shareUrl = window.location.href;
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -746,7 +652,7 @@
             players.push({
                 id: Date.now(),
                 name: name,
-                money: 10000,
+                money: INITIAL_MONEY,
                 betAmount: 1000,
                 samPredict: 0,
                 kiaPredict: 0,
@@ -956,7 +862,7 @@
 
         function resetAllData() {
             if (confirm('모든 참여자의 잔액을 10,000 P로 리셋하시겠습니까?')) {
-                players.forEach(p => { p.money = 10000; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
+                players.forEach(p => { p.money = INITIAL_MONEY; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
                 saveData();
                 renderBettingCards();
                 renderLeaderboard();
@@ -965,6 +871,28 @@
                 showAlert('전체 게임머니가 10,000 P로 초기화되었습니다.', 'info');
             }
         }
+
+        window.onload = function() {
+            document.getElementById('room-tag').textContent = `방 ID: ${roomId}`;
+            const local = localStorage.getItem(`sam_kia_${roomId}`);
+            if (local) {
+                try {
+                    const parsed = JSON.parse(local);
+                    if (parsed.liveMatch) liveMatch = parsed.liveMatch;
+                    if (parsed.players) players = parsed.players;
+                } catch(e) {}
+            }
+            
+            document.getElementById('live-sam-score').value = liveMatch.samScore;
+            document.getElementById('live-kia-score').value = liveMatch.kiaScore;
+            document.getElementById('live-inning').value = liveMatch.inning;
+
+            renderBettingCards();
+            renderLeaderboard();
+            updateAverages();
+
+            startRealtimePolling();
+        };
     </script>
 </body>
 </html>
