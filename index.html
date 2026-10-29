@@ -50,7 +50,10 @@
                     </h1>
                     <div class="flex items-center gap-2 mt-0.5">
                         <span id="room-tag" class="text-xs text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">방 ID: 동기화 중...</span>
-                        <button onclick="copyShareLink()" class="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-2.5 py-0.5 rounded shadow flex items-center gap-1 transition-all">
+                        <button onclick="window.fetchLatestData()" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-extrabold px-2.5 py-0.5 rounded shadow flex items-center gap-1 transition-all active:scale-95">
+                            <i class="fa-solid fa-rotate"></i> 수동 동기화
+                        </button>
+                        <button onclick="window.copyShareLink()" class="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-2.5 py-0.5 rounded shadow flex items-center gap-1 transition-all">
                             <i class="fa-solid fa-share-nodes"></i> 초대의 링크 복사
                         </button>
                     </div>
@@ -339,8 +342,7 @@
         window.liveMatch = { samScore: 3, kiaScore: 2, inning: '5회초' };
         window.players = [
             { id: 1, name: '테이블 A', money: INITIAL_MONEY, betAmount: 2000, samPredict: 5, kiaPredict: 3, locked: false },
-            { id: 2, name: '테이블 B', money: INITIAL_MONEY, betAmount: 1500, samPredict: 3, kiaPredict: 7, locked: false },
-            { id: 3, name: '테이블 C', money: INITIAL_MONEY, betAmount: 3000, samPredict: 4, kiaPredict: 2, locked: false }
+            { id: 2, name: '테이블 B', money: INITIAL_MONEY, betAmount: 1500, samPredict: 3, kiaPredict: 7, locked: false }
         ];
 
         // Global PubNub Realtime Network Channel
@@ -368,9 +370,9 @@
                     if (kiaInput) kiaInput.value = window.liveMatch.kiaScore;
                     if (innSelect) innSelect.value = window.liveMatch.inning;
 
-                    window.renderBettingCards();
-                    window.renderLeaderboard();
-                    window.updateAverages();
+                    if (typeof window.renderBettingCards === 'function') window.renderBettingCards();
+                    if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard();
+                    if (typeof window.updateAverages === 'function') window.updateAverages();
                     isRemoteUpdating = false;
                 }
             }
@@ -391,10 +393,7 @@
             }
         };
 
-        window.onload = function() {
-            const roomTagEl = document.getElementById('room-tag');
-            if (roomTagEl) roomTagEl.textContent = `방 ID: ${roomId}`;
-            
+        window.fetchLatestData = function() {
             const local = localStorage.getItem(`sam_kia_${roomId}`);
             if (local) {
                 try {
@@ -415,6 +414,15 @@
             if (typeof window.renderBettingCards === 'function') window.renderBettingCards();
             if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard();
             if (typeof window.updateAverages === 'function') window.updateAverages();
+
+            window.showAlert('최신 데이터로 최신화되었습니다.', 'success');
+        };
+
+        window.onload = function() {
+            const roomTagEl = document.getElementById('room-tag');
+            if (roomTagEl) roomTagEl.textContent = `방 ID: ${roomId}`;
+            
+            window.fetchLatestData();
         };
 
         // Window UI Helper Functions
@@ -564,6 +572,134 @@
             kiaEl.textContent = `예측 평균: ${(totalKia / window.players.length).toFixed(1)} 점`;
         };
 
+        window.calculateSettlement = function() {
+            const actSam = parseInt(document.getElementById('actual-samsung').value, 10);
+            const actKia = parseInt(document.getElementById('actual-kia').value, 10);
+
+            if (isNaN(actSam) || isNaN(actKia)) { window.showAlert('실제 스코어를 입력하세요.', 'warning'); return; }
+            if (window.players.length === 0) { window.showAlert('정산할 참여자가 없습니다.', 'warning'); return; }
+
+            const processed = window.players.map(p => {
+                const totalDiff = Math.abs(p.samPredict - actSam) + Math.abs(p.kiaPredict - actKia);
+                const exactMatch = (p.samPredict === actSam && p.kiaPredict === actKia);
+                const singleTeamMatch = !exactMatch && (p.samPredict === actSam || p.kiaPredict === actKia);
+                const numberComboMatch = !exactMatch && !singleTeamMatch && ((p.samPredict === actKia && p.kiaPredict === actSam));
+                return { ...p, totalDiff, exactMatch, singleTeamMatch, numberComboMatch };
+            });
+
+            // 완벽 적중(exactMatch)한 사람이 한 명이라도 있는지 확인
+            const hasAnyExactMatch = processed.some(p => p.exactMatch);
+
+            // 아무도 못 맞췄을 때만 오답자 중 최소 오차 계산
+            let minDiffId = null;
+            if (!hasAnyExactMatch) {
+                const minDiff = Math.min(...processed.map(p => p.totalDiff));
+                const closestPlayer = processed.find(p => p.totalDiff === minDiff);
+                if (closestPlayer) minDiffId = closestPlayer.id;
+            }
+
+            const results = processed.map(p => {
+                let reward = 0;
+                let outcomeType = '';
+                let badgeClass = '';
+
+                if (p.exactMatch) {
+                    reward = Math.round(p.betAmount * 3.0); outcomeType = '🎯 완벽 적중 (3.0배)'; badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+                } else if (p.singleTeamMatch) {
+                    reward = Math.round(p.betAmount * 1.5); outcomeType = '⚾ 한 팀 맞춤 (1.5배)'; badgeClass = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+                } else if (p.numberComboMatch) {
+                    reward = Math.round(p.betAmount * 1.2); outcomeType = '🔀 무관 숫자 맞춤 (1.2배)'; badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+                } else if (!hasAnyExactMatch && p.id === minDiffId) {
+                    // 완벽 적중자가 없고, 오차가 가장 적은 단 1명인 경우에만 오차 근접 보너스 적용
+                    reward = Math.round(p.betAmount * 1.1); outcomeType = '📐 최단 오차 보너스 (1.1배)'; badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                } else {
+                    reward = -p.betAmount; outcomeType = '❌ 적중 실패 (차감)'; badgeClass = 'bg-red-500/20 text-red-300 border-red-500/30';
+                }
+
+                const oldMoney = p.money;
+                const newMoney = Math.max(0, oldMoney + reward);
+                const target = window.players.find(item => item.id === p.id);
+                if (target) { target.money = newMoney; target.locked = false; }
+
+                return { name: p.name, predict: `${p.samPredict} : ${p.kiaPredict}`, betAmount: p.betAmount, outcomeType, badgeClass, reward, oldMoney, newMoney };
+            });
+
+            window.saveData();
+            window.renderBettingCards();
+            window.renderLeaderboard();
+
+            const resBox = document.getElementById('settlement-results-box');
+            const resDetails = document.getElementById('settlement-details');
+            document.getElementById('settlement-timestamp').textContent = `정산 시각: ${new Date().toLocaleTimeString()}`;
+
+            resDetails.innerHTML = results.map(r => `
+                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white text-base">${r.name}</span>
+                            <span class="text-xs px-2 py-0.5 rounded border ${r.badgeClass} font-semibold">${r.outcomeType}</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-1">
+                            예측: <span class="text-amber-300 font-bold">${r.predict}</span> | 배팅: ${r.betAmount.toLocaleString()} P
+                        </div>
+                    </div>
+                    <div class="text-right w-full sm:w-auto">
+                        <div class="font-black text-base ${r.reward >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+                            ${r.reward >= 0 ? '+' + r.reward.toLocaleString() : r.reward.toLocaleString()} P
+                        </div>
+                        <div class="text-[11px] text-slate-500">
+                            보유금: ${r.oldMoney.toLocaleString()} P ➔ <span class="text-slate-200 font-bold">${r.newMoney.toLocaleString()} P</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            resBox.classList.remove('hidden');
+            window.showAlert('경기 정산이 완료되었습니다!', 'success');
+            try { confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); } catch(e) {}
+        };
+
+        window.calculateLiveOdds = function(player) {
+            const curSam = window.liveMatch.samScore;
+            const curKia = window.liveMatch.kiaScore;
+            const predSam = player.samPredict;
+            const predKia = player.kiaPredict;
+            const wager = player.betAmount;
+
+            const reqSam = predSam - curSam;
+            const reqKia = predKia - curKia;
+
+            const exactPayout = Math.round(wager * 3.0);
+            const oneTeamPayout = Math.round(wager * 1.5);
+            const numMatchPayout = Math.round(wager * 1.2);
+            const totalDiff = Math.abs(predSam - curSam) + Math.abs(predKia - curKia);
+
+            let probPercent = 0;
+            let probLabel = "낮음";
+            let probColor = "text-red-400 border-red-500/30 bg-red-500/10";
+
+            if (curSam === predSam && curKia === predKia) {
+                probPercent = 98;
+                probLabel = "현재 완벽 적중 중!";
+                probColor = "text-emerald-300 border-emerald-500/50 bg-emerald-500/20";
+            } else if (reqSam < 0 || reqKia < 0) {
+                probPercent = Math.max(5, 30 - totalDiff * 5);
+                probLabel = "점수 초과";
+                probColor = "text-slate-400 border-slate-700 bg-slate-800/40";
+            } else {
+                const remaining = reqSam + reqKia;
+                if (remaining <= 2) {
+                    probPercent = 75; probLabel = "유력함"; probColor = "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
+                } else if (remaining <= 5) {
+                    probPercent = 45; probLabel = "보통"; probColor = "text-amber-400 border-amber-500/30 bg-amber-500/10";
+                } else {
+                    probPercent = 20; probLabel = "어려움"; probColor = "text-red-400 border-red-500/30 bg-red-500/10";
+                }
+            }
+
+            return { reqSam, reqKia, exactPayout, oneTeamPayout, numMatchPayout, probPercent, probLabel, probColor };
+        };
+
         window.renderBettingCards = function() {
             const container = document.getElementById('betting-cards-container');
             const badge = document.getElementById('player-count-badge');
@@ -695,47 +831,6 @@
             }).join('');
         };
 
-        window.calculateLiveOdds = function(player) {
-            const curSam = window.liveMatch.samScore;
-            const curKia = window.liveMatch.kiaScore;
-            const predSam = player.samPredict;
-            const predKia = player.kiaPredict;
-            const wager = player.betAmount;
-
-            const reqSam = predSam - curSam;
-            const reqKia = predKia - curKia;
-
-            const exactPayout = Math.round(wager * 3.0);
-            const oneTeamPayout = Math.round(wager * 1.5);
-            const numMatchPayout = Math.round(wager * 1.2);
-            const totalDiff = Math.abs(predSam - curSam) + Math.abs(predKia - curKia);
-
-            let probPercent = 0;
-            let probLabel = "낮음";
-            let probColor = "text-red-400 border-red-500/30 bg-red-500/10";
-
-            if (curSam === predSam && curKia === predKia) {
-                probPercent = 98;
-                probLabel = "현재 완벽 적중 중!";
-                probColor = "text-emerald-300 border-emerald-500/50 bg-emerald-500/20";
-            } else if (reqSam < 0 || reqKia < 0) {
-                probPercent = Math.max(5, 30 - totalDiff * 5);
-                probLabel = "점수 초과";
-                probColor = "text-slate-400 border-slate-700 bg-slate-800/40";
-            } else {
-                const remaining = reqSam + reqKia;
-                if (remaining <= 2) {
-                    probPercent = 75; probLabel = "유력함"; probColor = "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
-                } else if (remaining <= 5) {
-                    probPercent = 45; probLabel = "보통"; probColor = "text-amber-400 border-amber-500/30 bg-amber-500/10";
-                } else {
-                    probPercent = 20; probLabel = "어려움"; probColor = "text-red-400 border-red-500/30 bg-red-500/10";
-                }
-            }
-
-            return { reqSam, reqKia, exactPayout, oneTeamPayout, numMatchPayout, probPercent, probLabel, probColor };
-        };
-
         window.renderLeaderboard = function() {
             const tbody = document.getElementById('leaderboard-table-body');
             if (!tbody) return;
@@ -799,6 +894,19 @@
             document.execCommand('copy');
             document.body.removeChild(temp);
             window.showAlert('초대 링크가 복사되었습니다! 카톡으로 공유하세요.', 'success');
+        };
+
+        window.resetAllData = function() {
+            if (confirm('모든 참여자의 잔액을 10,000 P로 리셋하시겠습니까?')) {
+                window.players.forEach(p => { p.money = INITIAL_MONEY; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
+                window.saveData();
+                window.renderBettingCards();
+                window.renderLeaderboard();
+                window.updateAverages();
+                const resBox = document.getElementById('settlement-results-box');
+                if (resBox) resBox.classList.add('hidden');
+                window.showAlert('전체 게임머니가 10,000 P로 초기화되었습니다.', 'info');
+            }
         };
     </script>
 </body>
