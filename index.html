@@ -51,7 +51,7 @@
                         <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">라이브 배팅</span>
                     </h1>
                     <div class="flex items-center gap-2 mt-0.5">
-                        <span id="room-tag" class="text-xs text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">방 ID: 준비 중...</span>
+                        <span id="room-tag" class="text-xs text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">방 ID: ROOM-3469</span>
                         <button onclick="window.syncFromCloud()" class="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-3 py-1 rounded shadow flex items-center gap-1.5 transition-all active:scale-95">
                             <i class="fa-solid fa-rotate"></i> 🔄 수동 동기화
                         </button>
@@ -315,8 +315,12 @@
         const INITIAL_MONEY = 10000;
 
         // URL Room Parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        let roomId = urlParams.get('room') || 'ROOM-3469';
+        let roomId = 'ROOM-3469';
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramRoom = urlParams.get('room');
+            if (paramRoom) roomId = paramRoom;
+        } catch(e) {}
         window.roomId = roomId;
 
         window.liveMatch = { samScore: 3, kiaScore: 2, inning: '5회초' };
@@ -325,7 +329,8 @@
             { id: 2, name: '테이블 B', money: INITIAL_MONEY, betAmount: 1500, samPredict: 3, kiaPredict: 7, locked: false }
         ];
 
-        window.showAlert = function(msg, type = 'info') {
+        window.showAlert = function(msg, type) {
+            type = type || 'info';
             const box = document.getElementById('alert-box');
             const icon = document.getElementById('alert-icon');
             const message = document.getElementById('alert-message');
@@ -349,7 +354,7 @@
 
             message.textContent = msg;
             box.classList.remove('hidden');
-            setTimeout(() => window.hideAlert(), 4000);
+            setTimeout(function() { window.hideAlert(); }, 4000);
         };
 
         window.hideAlert = function() {
@@ -360,20 +365,20 @@
         // Save State to Local Storage
         window.saveData = function() {
             try {
-                localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch: window.liveMatch, players: window.players }));
+                localStorage.setItem('sam_kia_' + window.roomId, JSON.stringify({ liveMatch: window.liveMatch, players: window.players }));
             } catch(e) {}
         };
 
         // Manual Sync Function
         window.syncFromCloud = function() {
-            const local = localStorage.getItem(`sam_kia_${roomId}`);
-            if (local) {
-                try {
+            try {
+                const local = localStorage.getItem('sam_kia_' + window.roomId);
+                if (local) {
                     const parsed = JSON.parse(local);
                     if (parsed.liveMatch) window.liveMatch = parsed.liveMatch;
                     if (parsed.players) window.players = parsed.players;
-                } catch(e) {}
-            }
+                }
+            } catch(e) {}
 
             const samInput = document.getElementById('live-sam-score');
             const kiaInput = document.getElementById('live-kia-score');
@@ -409,25 +414,25 @@
             window.saveData();
             window.renderBettingCards();
             window.updateAverages();
-            window.showAlert(`${name} 테이블이 추가되었습니다.`, 'success');
+            window.showAlert(name + ' 테이블이 추가되었습니다.', 'success');
         };
 
         window.removePlayer = function(id) {
-            window.players = window.players.filter(p => p.id !== id);
+            window.players = window.players.filter(function(p) { return p.id !== id; });
             window.saveData();
             window.renderBettingCards();
             window.updateAverages();
         };
 
         window.toggleLock = function(id) {
-            const player = window.players.find(p => p.id === id);
+            const player = window.players.find(function(p) { return p.id === id; });
             if (!player) return;
 
             if (!player.locked) {
                 if (player.betAmount <= 0) { window.showAlert('배팅 금액은 1 P 이상이어야 합니다.', 'warning'); return; }
                 if (player.betAmount > player.money) { window.showAlert('보유 머니보다 크게 배팅할 수 없습니다.', 'error'); return; }
                 player.locked = true;
-                window.showAlert(`${player.name} 님의 배팅이 확정되었습니다.`, 'success');
+                window.showAlert(player.name + ' 님의 배팅이 확정되었습니다.', 'success');
             } else {
                 player.locked = false;
             }
@@ -437,7 +442,7 @@
         };
 
         window.adjustPredict = function(id, field, delta) {
-            const player = window.players.find(p => p.id === id);
+            const player = window.players.find(function(p) { return p.id === id; });
             if (player && !player.locked) {
                 player[field] = Math.max(0, (player[field] || 0) + delta);
                 window.saveData();
@@ -447,7 +452,7 @@
         };
 
         window.updatePlayerBet = function(id, field, val) {
-            const player = window.players.find(p => p.id === id);
+            const player = window.players.find(function(p) { return p.id === id; });
             if (!player || player.locked) return;
 
             let numVal = parseInt(val, 10);
@@ -465,7 +470,7 @@
         };
 
         window.setMaxBet = function(id) {
-            const player = window.players.find(p => p.id === id);
+            const player = window.players.find(function(p) { return p.id === id; });
             if (player && !player.locked) {
                 player.betAmount = player.money;
                 window.saveData();
@@ -474,9 +479,13 @@
         };
 
         window.updateLiveGameScore = function() {
-            const samVal = parseInt(document.getElementById('live-sam-score').value, 10);
-            const kiaVal = parseInt(document.getElementById('live-kia-score').value, 10);
-            const inningVal = document.getElementById('live-inning').value;
+            const samInput = document.getElementById('live-sam-score');
+            const kiaInput = document.getElementById('live-kia-score');
+            const innSelect = document.getElementById('live-inning');
+
+            const samVal = samInput ? parseInt(samInput.value, 10) : 0;
+            const kiaVal = kiaInput ? parseInt(kiaInput.value, 10) : 0;
+            const inningVal = innSelect ? innSelect.value : '5회초';
 
             window.liveMatch.samScore = isNaN(samVal) ? 0 : samVal;
             window.liveMatch.kiaScore = isNaN(kiaVal) ? 0 : kiaVal;
@@ -497,11 +506,11 @@
                 return;
             }
 
-            const totalSam = window.players.reduce((sum, p) => sum + p.samPredict, 0);
-            const totalKia = window.players.reduce((sum, p) => sum + p.kiaPredict, 0);
+            const totalSam = window.players.reduce(function(sum, p) { return sum + p.samPredict; }, 0);
+            const totalKia = window.players.reduce(function(sum, p) { return sum + p.kiaPredict; }, 0);
 
-            samEl.textContent = `예측 평균: ${(totalSam / window.players.length).toFixed(1)} 점`;
-            kiaEl.textContent = `예측 평균: ${(totalKia / window.players.length).toFixed(1)} 점`;
+            samEl.textContent = '예측 평균: ' + (totalSam / window.players.length).toFixed(1) + ' 점';
+            kiaEl.textContent = '예측 평균: ' + (totalKia / window.players.length).toFixed(1) + ' 점';
         };
 
         window.calculateSettlement = function() {
@@ -511,24 +520,35 @@
             if (isNaN(actSam) || isNaN(actKia)) { window.showAlert('실제 스코어를 입력하세요.', 'warning'); return; }
             if (window.players.length === 0) { window.showAlert('정산할 참여자가 없습니다.', 'warning'); return; }
 
-            const processed = window.players.map(p => {
+            const processed = window.players.map(function(p) {
                 const totalDiff = Math.abs(p.samPredict - actSam) + Math.abs(p.kiaPredict - actKia);
                 const exactMatch = (p.samPredict === actSam && p.kiaPredict === actKia);
                 const singleTeamMatch = !exactMatch && (p.samPredict === actSam || p.kiaPredict === actKia);
                 const numberComboMatch = !exactMatch && !singleTeamMatch && ((p.samPredict === actKia && p.kiaPredict === actSam));
-                return { ...p, totalDiff, exactMatch, singleTeamMatch, numberComboMatch };
+                return {
+                    id: p.id,
+                    name: p.name,
+                    money: p.money,
+                    betAmount: p.betAmount,
+                    samPredict: p.samPredict,
+                    kiaPredict: p.kiaPredict,
+                    totalDiff: totalDiff,
+                    exactMatch: exactMatch,
+                    singleTeamMatch: singleTeamMatch,
+                    numberComboMatch: numberComboMatch
+                };
             });
 
-            const hasAnyExactMatch = processed.some(p => p.exactMatch);
+            const hasAnyExactMatch = processed.some(function(p) { return p.exactMatch; });
 
             let minDiffId = null;
             if (!hasAnyExactMatch) {
-                const minDiff = Math.min(...processed.map(p => p.totalDiff));
-                const closestPlayer = processed.find(p => p.totalDiff === minDiff);
+                const minDiff = Math.min.apply(Math, processed.map(function(p) { return p.totalDiff; }));
+                const closestPlayer = processed.find(function(p) { return p.totalDiff === minDiff; });
                 if (closestPlayer) minDiffId = closestPlayer.id;
             }
 
-            const results = processed.map(p => {
+            const results = processed.map(function(p) {
                 let reward = 0;
                 let outcomeType = '';
                 let badgeClass = '';
@@ -547,10 +567,10 @@
 
                 const oldMoney = p.money;
                 const newMoney = Math.max(0, oldMoney + reward);
-                const target = window.players.find(item => item.id === p.id);
+                const target = window.players.find(function(item) { return item.id === p.id; });
                 if (target) { target.money = newMoney; target.locked = false; }
 
-                return { name: p.name, predict: `${p.samPredict} : ${p.kiaPredict}`, betAmount: p.betAmount, outcomeType, badgeClass, reward, oldMoney, newMoney };
+                return { name: p.name, predict: p.samPredict + ' : ' + p.kiaPredict, betAmount: p.betAmount, outcomeType: outcomeType, badgeClass: badgeClass, reward: reward, oldMoney: oldMoney, newMoney: newMoney };
             });
 
             window.saveData();
@@ -559,29 +579,29 @@
 
             const resBox = document.getElementById('settlement-results-box');
             const resDetails = document.getElementById('settlement-details');
-            document.getElementById('settlement-timestamp').textContent = `정산 시각: ${new Date().toLocaleTimeString()}`;
+            document.getElementById('settlement-timestamp').textContent = '정산 시각: ' + new Date().toLocaleTimeString();
 
-            resDetails.innerHTML = results.map(r => `
-                <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold text-white text-base">${r.name}</span>
-                            <span class="text-xs px-2 py-0.5 rounded border ${r.badgeClass} font-semibold">${r.outcomeType}</span>
-                        </div>
-                        <div class="text-xs text-slate-400 mt-1">
-                            예측: <span class="text-amber-300 font-bold">${r.predict}</span> | 배팅: ${r.betAmount.toLocaleString()} P
-                        </div>
-                    </div>
-                    <div class="text-right w-full sm:w-auto">
-                        <div class="font-black text-base ${r.reward >= 0 ? 'text-emerald-400' : 'text-red-400'}">
-                            ${r.reward >= 0 ? '+' + r.reward.toLocaleString() : r.reward.toLocaleString()} P
-                        </div>
-                        <div class="text-[11px] text-slate-500">
-                            보유금: ${r.oldMoney.toLocaleString()} P ➔ <span class="text-slate-200 font-bold">${r.newMoney.toLocaleString()} P</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            resDetails.innerHTML = results.map(function(r) {
+                return '<div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">' +
+                    '<div>' +
+                        '<div class="flex items-center gap-2">' +
+                            '<span class="font-bold text-white text-base">' + r.name + '</span>' +
+                            '<span class="text-xs px-2 py-0.5 rounded border ' + r.badgeClass + ' font-semibold">' + r.outcomeType + '</span>' +
+                        '</div>' +
+                        '<div class="text-xs text-slate-400 mt-1">' +
+                            '예측: <span class="text-amber-300 font-bold">' + r.predict + '</span> | 배팅: ' + r.betAmount.toLocaleString() + ' P' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="text-right w-full sm:w-auto">' +
+                        '<div class="font-black text-base ' + (r.reward >= 0 ? 'text-emerald-400' : 'text-red-400') + '">' +
+                            (r.reward >= 0 ? '+' + r.reward.toLocaleString() : r.reward.toLocaleString()) + ' P' +
+                        '</div>' +
+                        '<div class="text-[11px] text-slate-500">' +
+                            '보유금: ' + r.oldMoney.toLocaleString() + ' P ➔ <span class="text-slate-200 font-bold">' + r.newMoney.toLocaleString() + ' P</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
 
             resBox.classList.remove('hidden');
             window.showAlert('경기 정산이 완료되었습니다!', 'success');
@@ -626,172 +646,162 @@
                 }
             }
 
-            return { reqSam, reqKia, exactPayout, oneTeamPayout, numMatchPayout, probPercent, probLabel, probColor };
+            return { reqSam: reqSam, reqKia: reqKia, exactPayout: exactPayout, oneTeamPayout: oneTeamPayout, numMatchPayout: numMatchPayout, probPercent: probPercent, probLabel: probLabel, probColor: probColor };
         };
 
         window.renderBettingCards = function() {
             const container = document.getElementById('betting-cards-container');
             const badge = document.getElementById('player-count-badge');
             if (!container) return;
-            if (badge) badge.textContent = `${window.players.length}명`;
+            if (badge) badge.textContent = window.players.length + '명';
 
             if (window.players.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-12 glass-panel rounded-2xl border border-slate-800 text-slate-500">
-                        <i class="fa-solid fa-users-slash text-3xl mb-2"></i>
-                        <p>등록된 테이블이 없습니다. 상단에서 테이블을 추가해 주세요!</p>
-                    </div>
-                `;
+                container.innerHTML = '<div class="col-span-full text-center py-12 glass-panel rounded-2xl border border-slate-800 text-slate-500">' +
+                        '<i class="fa-solid fa-users-slash text-3xl mb-2"></i>' +
+                        '<p>등록된 테이블이 없습니다. 상단에서 테이블을 추가해 주세요!</p>' +
+                    '</div>';
                 return;
             }
 
-            container.innerHTML = window.players.map(player => {
+            container.innerHTML = window.players.map(function(player) {
                 const odds = window.calculateLiveOdds(player);
 
-                return `
-                <div class="glass-panel rounded-2xl p-5 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${player.locked ? 'border-amber-500/50 bg-slate-900/90' : 'border-slate-700/60 hover:border-slate-600'}">
-                    ${player.locked ? `
-                        <div class="absolute top-0 right-0 bg-amber-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider flex items-center gap-1">
-                            <i class="fa-solid fa-lock"></i> 배팅 확정됨
-                        </div>
-                    ` : ''}
+                return '<div class="glass-panel rounded-2xl p-5 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ' + (player.locked ? 'border-amber-500/50 bg-slate-900/90' : 'border-slate-700/60 hover:border-slate-600') + '">' +
+                    (player.locked ? '<div class="absolute top-0 right-0 bg-amber-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider flex items-center gap-1">' +
+                            '<i class="fa-solid fa-lock"></i> 배팅 확정됨' +
+                        '</div>' : '') +
 
-                    <div>
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <h4 class="font-bold text-lg text-white flex items-center gap-2">${player.name}</h4>
-                                <div class="text-xs text-amber-400 font-bold mt-0.5 flex items-center gap-1">
-                                    <i class="fa-solid fa-coins"></i> 보유금: ${player.money.toLocaleString()} P
-                                </div>
-                            </div>
-                            ${!player.locked ? `
-                                <button onclick="window.removePlayer(${player.id})" class="text-slate-500 hover:text-red-400 p-1 text-sm transition-colors" title="삭제">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            ` : ''}
-                        </div>
+                    '<div>' +
+                        '<div class="flex justify-between items-start mb-3">' +
+                            '<div>' +
+                                '<h4 class="font-bold text-lg text-white flex items-center gap-2">' + player.name + '</h4>' +
+                                '<div class="text-xs text-amber-400 font-bold mt-0.5 flex items-center gap-1">' +
+                                    '<i class="fa-solid fa-coins"></i> 보유금: ' + player.money.toLocaleString() + ' P' +
+                                '</div>' +
+                            '</div>' +
+                            (!player.locked ? '<button onclick="window.removePlayer(' + player.id + ')" class="text-slate-500 hover:text-red-400 p-1 text-sm transition-colors" title="삭제">' +
+                                    '<i class="fa-solid fa-trash-can"></i>' +
+                                '</button>' : '') +
+                        '</div>' +
 
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div class="bg-samsung/10 border border-samsung/30 rounded-xl p-3">
-                                <span class="block text-xs font-bold text-blue-300 mb-2 text-center">삼성 예측 점수</span>
-                                <div class="flex items-center justify-between gap-1">
-                                    <button onclick="window.adjustPredict(${player.id}, 'samPredict', -1)" ${player.locked ? 'disabled' : ''} class="w-8 h-8 rounded-lg bg-samsung/40 hover:bg-samsung text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">-</button>
-                                    <input type="number" min="0" max="99" value="${player.samPredict}" 
-                                        ${player.locked ? 'disabled' : ''} 
-                                        onchange="window.updatePlayerBet(${player.id}, 'samPredict', this.value)"
-                                        class="w-14 bg-slate-950 border border-slate-700 rounded-lg py-1 text-center text-2xl font-black text-white focus:outline-none focus:border-blue-400 disabled:opacity-60">
-                                    <button onclick="window.adjustPredict(${player.id}, 'samPredict', 1)" ${player.locked ? 'disabled' : ''} class="w-8 h-8 rounded-lg bg-samsung/40 hover:bg-samsung text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">+</button>
-                                </div>
-                            </div>
+                        '<div class="grid grid-cols-2 gap-3 mb-3">' +
+                            '<div class="bg-samsung/10 border border-samsung/30 rounded-xl p-3">' +
+                                '<span class="block text-xs font-bold text-blue-300 mb-2 text-center">삼성 예측 점수</span>' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<button onclick="window.adjustPredict(' + player.id + ', \'samPredict\', -1)" ' + (player.locked ? 'disabled' : '') + ' class="w-8 h-8 rounded-lg bg-samsung/40 hover:bg-samsung text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">-</button>' +
+                                    '<input type="number" min="0" max="99" value="' + player.samPredict + '" ' +
+                                        (player.locked ? 'disabled' : '') + ' ' +
+                                        'onchange="window.updatePlayerBet(' + player.id + ', \'samPredict\', this.value)" ' +
+                                        'class="w-14 bg-slate-950 border border-slate-700 rounded-lg py-1 text-center text-2xl font-black text-white focus:outline-none focus:border-blue-400 disabled:opacity-60">' +
+                                    '<button onclick="window.adjustPredict(' + player.id + ', \'samPredict\', 1)" ' + (player.locked ? 'disabled' : '') + ' class="w-8 h-8 rounded-lg bg-samsung/40 hover:bg-samsung text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">+</button>' +
+                                '</div>' +
+                            '</div>' +
 
-                            <div class="bg-kia/10 border border-kia/30 rounded-xl p-3">
-                                <span class="block text-xs font-bold text-red-300 mb-2 text-center">기아 예측 점수</span>
-                                <div class="flex items-center justify-between gap-1">
-                                    <button onclick="window.adjustPredict(${player.id}, 'kiaPredict', -1)" ${player.locked ? 'disabled' : ''} class="w-8 h-8 rounded-lg bg-kia/40 hover:bg-kia text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">-</button>
-                                    <input type="number" min="0" max="99" value="${player.kiaPredict}" 
-                                        ${player.locked ? 'disabled' : ''} 
-                                        onchange="window.updatePlayerBet(${player.id}, 'kiaPredict', this.value)"
-                                        class="w-14 bg-slate-950 border border-slate-700 rounded-lg py-1 text-center text-2xl font-black text-white focus:outline-none focus:border-red-400 disabled:opacity-60">
-                                    <button onclick="window.adjustPredict(${player.id}, 'kiaPredict', 1)" ${player.locked ? 'disabled' : ''} class="w-8 h-8 rounded-lg bg-kia/40 hover:bg-kia text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">+</button>
-                                </div>
-                            </div>
-                        </div>
+                            '<div class="bg-kia/10 border border-kia/30 rounded-xl p-3">' +
+                                '<span class="block text-xs font-bold text-red-300 mb-2 text-center">기아 예측 점수</span>' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<button onclick="window.adjustPredict(' + player.id + ', \'kiaPredict\', -1)" ' + (player.locked ? 'disabled' : '') + ' class="w-8 h-8 rounded-lg bg-kia/40 hover:bg-kia text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">-</button>' +
+                                    '<input type="number" min="0" max="99" value="' + player.kiaPredict + '" ' +
+                                        (player.locked ? 'disabled' : '') + ' ' +
+                                        'onchange="window.updatePlayerBet(' + player.id + ', \'kiaPredict\', this.value)" ' +
+                                        'class="w-14 bg-slate-950 border border-slate-700 rounded-lg py-1 text-center text-2xl font-black text-white focus:outline-none focus:border-red-400 disabled:opacity-60">' +
+                                    '<button onclick="window.adjustPredict(' + player.id + ', \'kiaPredict\', 1)" ' + (player.locked ? 'disabled' : '') + ' class="w-8 h-8 rounded-lg bg-kia/40 hover:bg-kia text-white font-black text-lg flex items-center justify-center disabled:opacity-30 flex-shrink-0">+</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
 
-                        <div class="mb-4 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                            <div class="flex justify-between text-xs mb-1.5">
-                                <span class="text-slate-300 font-bold">배팅 금액 (P)</span>
-                                <button onclick="window.setMaxBet(${player.id})" ${player.locked ? 'disabled' : ''} class="text-amber-400 text-[11px] font-bold underline hover:text-amber-300 disabled:opacity-50">전액 배팅</button>
-                            </div>
-                            <div class="relative flex items-center gap-2">
-                                <input type="number" min="1" max="${player.money}" value="${player.betAmount}" 
-                                    ${player.locked ? 'disabled' : ''} 
-                                    onchange="window.updatePlayerBet(${player.id}, 'betAmount', this.value)"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-base font-black text-amber-300 focus:outline-none focus:border-amber-500 disabled:opacity-60">
-                                <span class="absolute right-3 top-2.5 text-xs text-slate-500 font-bold">P</span>
-                            </div>
-                        </div>
+                        '<div class="mb-4 bg-slate-900/60 p-3 rounded-xl border border-slate-800">' +
+                            '<div class="flex justify-between text-xs mb-1.5">' +
+                                '<span class="text-slate-300 font-bold">배팅 금액 (P)</span>' +
+                                '<button onclick="window.setMaxBet(' + player.id + ')" ' + (player.locked ? 'disabled' : '') + ' class="text-amber-400 text-[11px] font-bold underline hover:text-amber-300 disabled:opacity-50">전액 배팅</button>' +
+                            '</div>' +
+                            '<div class="relative flex items-center gap-2">' +
+                                '<input type="number" min="1" max="' + player.money + '" value="' + player.betAmount + '" ' +
+                                    (player.locked ? 'disabled' : '') + ' ' +
+                                    'onchange="window.updatePlayerBet(' + player.id + ', \'betAmount\', this.value)" ' +
+                                    'class="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-base font-black text-amber-300 focus:outline-none focus:border-amber-500 disabled:opacity-60">' +
+                                '<span class="absolute right-3 top-2.5 text-xs text-slate-500 font-bold">P</span>' +
+                            '</div>' +
+                        '</div>' +
 
-                        <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 mb-4 space-y-2">
-                            <div class="flex justify-between items-center text-xs pb-2 border-b border-slate-800">
-                                <span class="text-slate-400 font-semibold flex items-center gap-1">
-                                    <i class="fa-solid fa-calculator text-amber-400"></i> 실시간 예상 배당
-                                </span>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${odds.probColor}">
-                                    ${odds.probLabel} (${odds.probPercent}%)
-                                </span>
-                            </div>
+                        '<div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 mb-4 space-y-2">' +
+                            '<div class="flex justify-between items-center text-xs pb-2 border-b border-slate-800">' +
+                                '<span class="text-slate-400 font-semibold flex items-center gap-1">' +
+                                    '<i class="fa-solid fa-calculator text-amber-400"></i> 실시간 예상 배당' +
+                                '</span>' +
+                                '<span class="text-[10px] font-bold px-2 py-0.5 rounded border ' + odds.probColor + '">' +
+                                    odds.probLabel + ' (' + odds.probPercent + '%)' +
+                                '</span>' +
+                            '</div>' +
 
-                            <div class="text-[11px] text-slate-300 flex justify-between pt-1">
-                                <span>필요 추가 득점:</span>
-                                <span class="font-bold">
-                                    삼성 <span class="${odds.reqSam < 0 ? 'text-red-400' : 'text-blue-300'}">${odds.reqSam >= 0 ? '+' + odds.reqSam : odds.reqSam}</span> / 
-                                    기아 <span class="${odds.reqKia < 0 ? 'text-red-400' : 'text-red-300'}">${odds.reqKia >= 0 ? '+' + odds.reqKia : odds.reqKia}</span>
-                                </span>
-                            </div>
+                            '<div class="text-[11px] text-slate-300 flex justify-between pt-1">' +
+                                '<span>필요 추가 득점:</span>' +
+                                '<span class="font-bold">' +
+                                    '삼성 <span class="' + (odds.reqSam < 0 ? 'text-red-400' : 'text-blue-300') + '">' + (odds.reqSam >= 0 ? '+' + odds.reqSam : odds.reqSam) + '</span> / ' +
+                                    '기아 <span class="' + (odds.reqKia < 0 ? 'text-red-400' : 'text-red-300') + '">' + (odds.reqKia >= 0 ? '+' + odds.reqKia : odds.reqKia) + '</span>' +
+                                '</span>' +
+                            '</div>' +
 
-                            <div class="space-y-1 text-[11px] pt-1">
-                                <div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">
-                                    <span class="text-emerald-400 font-medium">🎯 완벽 적중 (3.0x)</span>
-                                    <span class="font-black text-emerald-300">+${odds.exactPayout.toLocaleString()} P</span>
-                                </div>
-                                <div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">
-                                    <span class="text-blue-400 font-medium">⚾ 한 팀 맞춤 (1.5x)</span>
-                                    <span class="font-bold text-blue-200">+${odds.oneTeamPayout.toLocaleString()} P</span>
-                                </div>
-                                <div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">
-                                    <span class="text-purple-400 font-medium">🔀 숫자 맞춤 (1.2x)</span>
-                                    <span class="font-bold text-purple-200">+${odds.numMatchPayout.toLocaleString()} P</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                            '<div class="space-y-1 text-[11px] pt-1">' +
+                                '<div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">' +
+                                    '<span class="text-emerald-400 font-medium">🎯 완벽 적중 (3.0x)</span>' +
+                                    '<span class="font-black text-emerald-300">+' + odds.exactPayout.toLocaleString() + ' P</span>' +
+                                '</div>' +
+                                '<div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">' +
+                                    '<span class="text-blue-400 font-medium">⚾ 한 팀 맞춤 (1.5x)</span>' +
+                                    '<span class="font-bold text-blue-200">+' + odds.oneTeamPayout.toLocaleString() + ' P</span>' +
+                                '</div>' +
+                                '<div class="flex justify-between items-center bg-slate-900/60 p-1.5 rounded-lg">' +
+                                    '<span class="text-purple-400 font-medium">🔀 숫자 맞춤 (1.2x)</span>' +
+                                    '<span class="font-bold text-purple-200">+' + odds.numMatchPayout.toLocaleString() + ' P</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
 
-                    <button onclick="window.toggleLock(${player.id})" 
-                        class="w-full py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                            player.locked 
+                    '<button onclick="window.toggleLock(' + player.id + ')" ' +
+                        'class="w-full py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ' +
+                            (player.locked 
                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600' 
-                            : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/10'
-                        }">
-                        <i class="fa-solid ${player.locked ? 'fa-pen-to-square' : 'fa-check'}"></i>
-                        ${player.locked ? '배팅 수정' : '배팅 확정'}
-                    </button>
-                </div>
-            `;
+                            : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md shadow-amber-500/10') +
+                        '">' +
+                        '<i class="fa-solid ' + (player.locked ? 'fa-pen-to-square' : 'fa-check') + '"></i>' +
+                        (player.locked ? '배팅 수정' : '배팅 확정') +
+                    '</button>' +
+                '</div>';
             }).join('');
         };
 
         window.renderLeaderboard = function() {
             const tbody = document.getElementById('leaderboard-table-body');
             if (!tbody) return;
-            const sorted = [...window.players].sort((a, b) => b.money - a.money);
+            const sorted = window.players.slice().sort(function(a, b) { return b.money - a.money; });
 
             if (sorted.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">참여자가 없습니다.</td></tr>`;
+                tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">참여자가 없습니다.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = sorted.map((p, index) => {
-                let rankBadge = `<span class="font-bold text-slate-400">${index + 1}위</span>`;
-                if (index === 0) rankBadge = `<span class="bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded text-xs shadow-md"><i class="fa-solid fa-crown mr-1"></i>1위</span>`;
-                else if (index === 1) rankBadge = `<span class="bg-slate-300 text-slate-950 font-bold px-2 py-0.5 rounded text-xs">2위</span>`;
-                else if (index === 2) rankBadge = `<span class="bg-amber-700/80 text-amber-200 font-bold px-2 py-0.5 rounded text-xs">3위</span>`;
+            tbody.innerHTML = sorted.map(function(p, index) {
+                let rankBadge = '<span class="font-bold text-slate-400">' + (index + 1) + '위</span>';
+                if (index === 0) rankBadge = '<span class="bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded text-xs shadow-md"><i class="fa-solid fa-crown mr-1"></i>1위</span>';
+                else if (index === 1) rankBadge = '<span class="bg-slate-300 text-slate-950 font-bold px-2 py-0.5 rounded text-xs">2위</span>';
+                else if (index === 2) rankBadge = '<span class="bg-amber-700/80 text-amber-200 font-bold px-2 py-0.5 rounded text-xs">3위</span>';
 
-                return `
-                    <tr class="hover:bg-slate-800/40 transition-colors">
-                        <td class="py-3 px-4">${rankBadge}</td>
-                        <td class="py-3 px-4 font-bold text-white">${p.name}</td>
-                        <td class="py-3 px-4 text-center text-slate-300">${p.samPredict} : ${p.kiaPredict}</td>
-                        <td class="py-3 px-4 text-center text-amber-400 font-medium">${p.betAmount.toLocaleString()} P</td>
-                        <td class="py-3 px-4 text-right font-black text-emerald-400 text-base">${p.money.toLocaleString()} P</td>
-                    </tr>
-                `;
+                return '<tr class="hover:bg-slate-800/40 transition-colors">' +
+                        '<td class="py-3 px-4">' + rankBadge + '</td>' +
+                        '<td class="py-3 px-4 font-bold text-white">' + p.name + '</td>' +
+                        '<td class="py-3 px-4 text-center text-slate-300">' + p.samPredict + ' : ' + p.kiaPredict + '</td>' +
+                        '<td class="py-3 px-4 text-center text-amber-400 font-medium">' + p.betAmount.toLocaleString() + ' P</td>' +
+                        '<td class="py-3 px-4 text-right font-black text-emerald-400 text-base">' + p.money.toLocaleString() + ' P</td>' +
+                    '</tr>';
             }).join('');
         };
 
         window.switchTab = function(tabName) {
-            ['betting', 'settlement', 'leaderboard', 'rules'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                const sec = document.getElementById(`sec-${t}`);
+            ['betting', 'settlement', 'leaderboard', 'rules'].forEach(function(t) {
+                const btn = document.getElementById('tab-' + t);
+                const sec = document.getElementById('sec-' + t);
                 if (!btn || !sec) return;
                 if (t === tabName) {
                     btn.className = "px-3 py-1.5 rounded-lg font-bold transition-all duration-200 bg-amber-500 text-slate-950 shadow-md";
@@ -807,9 +817,9 @@
         window.copyShareLink = function() {
             const shareUrl = window.location.href;
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(shareUrl).then(() => {
+                navigator.clipboard.writeText(shareUrl).then(function() {
                     window.showAlert('초대 링크가 복사되었습니다!', 'success');
-                }).catch(() => window.fallbackCopy(shareUrl));
+                }).catch(function() { window.fallbackCopy(shareUrl); });
             } else {
                 window.fallbackCopy(shareUrl);
             }
@@ -827,7 +837,7 @@
 
         window.resetAllData = function() {
             if (confirm('모든 참여자의 잔액을 10,000 P로 리셋하시겠습니까?')) {
-                window.players.forEach(p => { p.money = INITIAL_MONEY; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
+                window.players.forEach(function(p) { p.money = INITIAL_MONEY; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
                 window.saveData();
                 window.renderBettingCards();
                 window.renderLeaderboard();
@@ -838,12 +848,14 @@
             }
         };
 
-        // Window Load Handler
+        // Window Load Handler - Safety Direct Render
         window.onload = function() {
             const roomTagEl = document.getElementById('room-tag');
-            if (roomTagEl) roomTagEl.textContent = `방 ID: ${roomId}`;
+            if (roomTagEl) roomTagEl.textContent = '방 ID: ' + window.roomId;
             
-            window.syncFromCloud();
+            window.renderBettingCards();
+            window.renderLeaderboard();
+            window.updateAverages();
         };
     </script>
 </body>
