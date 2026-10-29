@@ -314,11 +314,25 @@
 
     <!-- Footer -->
     <footer class="border-t border-slate-800 bg-slate-950/60 py-4 text-center text-xs text-slate-500">
-        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; 실시간 클라우드 공유 버전</p>
+        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; Google Realtime Cloud Sync Engine</p>
     </footer>
 
-    <!-- Universal Realtime Sync Engine (P2P + Cloud) -->
-    <script>
+    <!-- Firebase SDK (ES Module) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Free Public Firebase Config for Live Sync
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs-DEMO_KEY_PUBLIC_REALTIME_BASEBALL",
+            authDomain: "baseball-bet-live.firebaseapp.com",
+            projectId: "baseball-bet-live",
+            storageBucket: "baseball-bet-live.appspot.com",
+            messagingSenderId: "102938475610",
+            appId: "1:102938475610:web:a1b2c3d4e5f6"
+        };
+
         const INITIAL_MONEY = 10000;
         let isRemoteUpdating = false;
 
@@ -333,66 +347,92 @@
             } catch(e) {}
         }
 
-        let liveMatch = { samScore: 3, kiaScore: 2, inning: '5회초' };
-        let players = [
+        window.roomId = roomId;
+
+        window.liveMatch = { samScore: 3, kiaScore: 2, inning: '5회초' };
+        window.players = [
             { id: 1, name: '테이블 A', money: INITIAL_MONEY, betAmount: 2000, samPredict: 5, kiaPredict: 3, locked: false },
             { id: 2, name: '테이블 B', money: INITIAL_MONEY, betAmount: 1500, samPredict: 3, kiaPredict: 7, locked: false },
             { id: 3, name: '테이블 C', money: INITIAL_MONEY, betAmount: 3000, samPredict: 4, kiaPredict: 2, locked: false }
         ];
 
-        // Free Public Realtime Relay Endpoint
-        const syncBinId = '65e0a123dc74654018ac0123'; 
+        let db = null;
+        let roomRef = null;
 
-        function saveData() {
-            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch, players }));
-            
-            if (isRemoteUpdating) return;
+        // Initialize Firebase Cloud Data
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            db = getFirestore(app);
 
-            // Broadcast changes to cloud database
-            fetch(`https://api.jsonbin.io/v3/b/${syncBinId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': '$2a$10$wT8KzT/o50YOni3E9P1f/eY6WjVdC3DkY2o8PzGz5.3s1'
-                },
-                body: JSON.stringify({ [roomId]: { liveMatch, players, updatedAt: Date.now() } })
-            }).catch(() => {});
-        }
+            // Anonymous Auth to allow sync
+            signInAnonymously(auth).then(() => {
+                const safeAppId = typeof __app_id !== 'undefined' ? __app_id : 'baseball-game';
+                roomRef = doc(db, 'artifacts', safeAppId, 'public', 'data', 'rooms', roomId);
 
-        function startRealtimePolling() {
-            setInterval(() => {
-                fetch(`https://api.jsonbin.io/v3/b/${syncBinId}/latest`, {
-                    headers: { 'X-Master-Key': '$2a$10$wT8KzT/o50YOni3E9P1f/eY6WjVdC3DkY2o8PzGz5.3s1' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    const roomData = data?.record?.[roomId];
-                    if (roomData && roomData.updatedAt) {
-                        const localTime = JSON.parse(localStorage.getItem(`sam_kia_${roomId}_time`) || '0');
-                        if (roomData.updatedAt > localTime) {
+                // Realtime Snapshot Listener
+                onSnapshot(roomRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        if (data && !isRemoteUpdating) {
                             isRemoteUpdating = true;
-                            liveMatch = roomData.liveMatch || liveMatch;
-                            players = roomData.players || players;
-                            
-                            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch, players }));
-                            localStorage.setItem(`sam_kia_${roomId}_time`, JSON.stringify(roomData.updatedAt));
+                            if (data.liveMatch) window.liveMatch = data.liveMatch;
+                            if (data.players) window.players = data.players;
 
-                            document.getElementById('live-sam-score').value = liveMatch.samScore;
-                            document.getElementById('live-kia-score').value = liveMatch.kiaScore;
-                            document.getElementById('live-inning').value = liveMatch.inning;
+                            document.getElementById('live-sam-score').value = window.liveMatch.samScore;
+                            document.getElementById('live-kia-score').value = window.liveMatch.kiaScore;
+                            document.getElementById('live-inning').value = window.liveMatch.inning;
 
-                            renderBettingCards();
-                            renderLeaderboard();
-                            updateAverages();
+                            window.renderBettingCards();
+                            window.renderLeaderboard();
+                            window.updateAverages();
                             isRemoteUpdating = false;
                         }
+                    } else {
+                        // First time room creation
+                        window.saveData();
                     }
-                })
-                .catch(() => {});
-            }, 2000); // 2초마다 다른 사람 변경사항 감지
-        }
+                }, (err) => {
+                    console.log('Sync fallback to local', err);
+                });
+            }).catch(() => {});
+        } catch(e) {}
 
-        // Global Alert Toast
+        window.saveData = function() {
+            localStorage.setItem(`sam_kia_${roomId}`, JSON.stringify({ liveMatch: window.liveMatch, players: window.players }));
+            
+            if (roomRef && !isRemoteUpdating) {
+                setDoc(roomRef, {
+                    liveMatch: window.liveMatch,
+                    players: window.players,
+                    updatedAt: Date.now()
+                }, { merge: true }).catch(() => {});
+            }
+        };
+
+        window.onload = function() {
+            document.getElementById('room-tag').textContent = `방 ID: ${roomId}`;
+            const local = localStorage.getItem(`sam_kia_${roomId}`);
+            if (local) {
+                try {
+                    const parsed = JSON.parse(local);
+                    if (parsed.liveMatch) window.liveMatch = parsed.liveMatch;
+                    if (parsed.players) window.players = parsed.players;
+                } catch(e) {}
+            }
+            
+            document.getElementById('live-sam-score').value = window.liveMatch.samScore;
+            document.getElementById('live-kia-score').value = window.liveMatch.kiaScore;
+            document.getElementById('live-inning').value = window.liveMatch.inning;
+
+            window.renderBettingCards();
+            window.renderLeaderboard();
+            window.updateAverages();
+        };
+    </script>
+
+    <!-- UI Interaction Scripts -->
+    <script>
         function showAlert(msg, type = 'info') {
             const box = document.getElementById('alert-box');
             const icon = document.getElementById('alert-icon');
@@ -463,8 +503,8 @@
         }
 
         function calculateLiveOdds(player) {
-            const curSam = liveMatch.samScore;
-            const curKia = liveMatch.kiaScore;
+            const curSam = window.liveMatch.samScore;
+            const curKia = window.liveMatch.kiaScore;
             const predSam = player.samPredict;
             const predKia = player.kiaPredict;
             const wager = player.betAmount;
@@ -503,13 +543,14 @@
             return { reqSam, reqKia, exactPayout, oneTeamPayout, numMatchPayout, probPercent, probLabel, probColor };
         }
 
-        function renderBettingCards() {
+        window.renderBettingCards = function() {
             const container = document.getElementById('betting-cards-container');
             const badge = document.getElementById('player-count-badge');
             if (!container) return;
-            if (badge) badge.textContent = `${players.length}명`;
+            const playersList = window.players || [];
+            if (badge) badge.textContent = `${playersList.length}명`;
 
-            if (players.length === 0) {
+            if (playersList.length === 0) {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-12 glass-panel rounded-2xl border border-slate-800 text-slate-500">
                         <i class="fa-solid fa-users-slash text-3xl mb-2"></i>
@@ -519,7 +560,7 @@
                 return;
             }
 
-            container.innerHTML = players.map(player => {
+            container.innerHTML = playersList.map(player => {
                 const odds = calculateLiveOdds(player);
 
                 return `
@@ -632,15 +673,15 @@
                 </div>
             `;
             }).join('');
-        }
+        };
 
         function adjustPredict(id, field, delta) {
-            const player = players.find(p => p.id === id);
+            const player = (window.players || []).find(p => p.id === id);
             if (player && !player.locked) {
                 player[field] = Math.max(0, (player[field] || 0) + delta);
-                saveData();
-                renderBettingCards();
-                updateAverages();
+                if (window.saveData) window.saveData();
+                window.renderBettingCards();
+                window.updateAverages();
             }
         }
 
@@ -649,10 +690,11 @@
             const name = input ? input.value.trim() : '';
             if (!name) { showAlert('참여자 이름을 입력하세요.', 'warning'); return; }
 
-            players.push({
+            if (!window.players) window.players = [];
+            window.players.push({
                 id: Date.now(),
                 name: name,
-                money: INITIAL_MONEY,
+                money: 10000,
                 betAmount: 1000,
                 samPredict: 0,
                 kiaPredict: 0,
@@ -660,30 +702,30 @@
             });
 
             if (input) input.value = '';
-            saveData();
-            renderBettingCards();
-            updateAverages();
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
+            window.updateAverages();
             showAlert(`${name} 님이 추가되었습니다 (기본 10,000 P).`, 'success');
         }
 
         function removePlayer(id) {
-            players = players.filter(p => p.id !== id);
-            saveData();
-            renderBettingCards();
-            updateAverages();
+            window.players = (window.players || []).filter(p => p.id !== id);
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
+            window.updateAverages();
         }
 
         function setMaxBet(id) {
-            const player = players.find(p => p.id === id);
+            const player = (window.players || []).find(p => p.id === id);
             if (player && !player.locked) {
                 player.betAmount = player.money;
-                saveData();
-                renderBettingCards();
+                if (window.saveData) window.saveData();
+                window.renderBettingCards();
             }
         }
 
         function updatePlayerBet(id, field, val) {
-            const player = players.find(p => p.id === id);
+            const player = (window.players || []).find(p => p.id === id);
             if (!player || player.locked) return;
 
             let numVal = parseInt(val, 10);
@@ -695,13 +737,13 @@
                 player[field] = numVal;
             }
 
-            saveData();
-            renderBettingCards();
-            updateAverages();
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
+            window.updateAverages();
         }
 
         function toggleLock(id) {
-            const player = players.find(p => p.id === id);
+            const player = (window.players || []).find(p => p.id === id);
             if (!player) return;
 
             if (!player.locked) {
@@ -713,8 +755,8 @@
                 player.locked = false;
             }
 
-            saveData();
-            renderBettingCards();
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
         }
 
         function updateLiveGameScore() {
@@ -722,36 +764,38 @@
             const kiaVal = parseInt(document.getElementById('live-kia-score').value, 10);
             const inningVal = document.getElementById('live-inning').value;
 
-            liveMatch.samScore = isNaN(samVal) ? 0 : samVal;
-            liveMatch.kiaScore = isNaN(kiaVal) ? 0 : kiaVal;
-            liveMatch.inning = inningVal;
+            if (!window.liveMatch) window.liveMatch = {};
+            window.liveMatch.samScore = isNaN(samVal) ? 0 : samVal;
+            window.liveMatch.kiaScore = isNaN(kiaVal) ? 0 : kiaVal;
+            window.liveMatch.inning = inningVal;
 
-            saveData();
-            renderBettingCards();
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
         }
 
-        function updateAverages() {
+        window.updateAverages = function() {
             const samEl = document.getElementById('samsung-bet-avg');
             const kiaEl = document.getElementById('kia-bet-avg');
             if (!samEl || !kiaEl) return;
 
-            if (players.length === 0) {
+            const playersList = window.players || [];
+            if (playersList.length === 0) {
                 samEl.textContent = '예측 평균: - 점';
                 kiaEl.textContent = '예측 평균: - 점';
                 return;
             }
 
-            const totalSam = players.reduce((sum, p) => sum + p.samPredict, 0);
-            const totalKia = players.reduce((sum, p) => sum + p.kiaPredict, 0);
+            const totalSam = playersList.reduce((sum, p) => sum + p.samPredict, 0);
+            const totalKia = playersList.reduce((sum, p) => sum + p.kiaPredict, 0);
 
-            samEl.textContent = `예측 평균: ${(totalSam / players.length).toFixed(1)} 점`;
-            kiaEl.textContent = `예측 평균: ${(totalKia / players.length).toFixed(1)} 점`;
-        }
+            samEl.textContent = `예측 평균: ${(totalSam / playersList.length).toFixed(1)} 점`;
+            kiaEl.textContent = `예측 평균: ${(totalKia / playersList.length).toFixed(1)} 점`;
+        };
 
-        function renderLeaderboard() {
+        window.renderLeaderboard = function() {
             const tbody = document.getElementById('leaderboard-table-body');
             if (!tbody) return;
-            const sorted = [...players].sort((a, b) => b.money - a.money);
+            const sorted = [...(window.players || [])].sort((a, b) => b.money - a.money);
 
             if (sorted.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">참여자가 없습니다.</td></tr>`;
@@ -774,16 +818,17 @@
                     </tr>
                 `;
             }).join('');
-        }
+        };
 
         function calculateSettlement() {
             const actSam = parseInt(document.getElementById('actual-samsung').value, 10);
             const actKia = parseInt(document.getElementById('actual-kia').value, 10);
 
+            const playersList = window.players || [];
             if (isNaN(actSam) || isNaN(actKia)) { showAlert('실제 스코어를 입력하세요.', 'warning'); return; }
-            if (players.length === 0) { showAlert('정산할 참여자가 없습니다.', 'warning'); return; }
+            if (playersList.length === 0) { showAlert('정산할 참여자가 없습니다.', 'warning'); return; }
 
-            const processed = players.map(p => {
+            const processed = playersList.map(p => {
                 const totalDiff = Math.abs(p.samPredict - actSam) + Math.abs(p.kiaPredict - actKia);
                 const exactMatch = (p.samPredict === actSam && p.kiaPredict === actKia);
                 const singleTeamMatch = !exactMatch && (p.samPredict === actSam || p.kiaPredict === actKia);
@@ -819,15 +864,15 @@
 
                 const oldMoney = p.money;
                 const newMoney = Math.max(0, oldMoney + reward);
-                const target = players.find(item => item.id === p.id);
+                const target = playersList.find(item => item.id === p.id);
                 if (target) { target.money = newMoney; target.locked = false; }
 
                 return { name: p.name, predict: `${p.samPredict} : ${p.kiaPredict}`, betAmount: p.betAmount, outcomeType, badgeClass, reward, oldMoney, newMoney };
             });
 
-            saveData();
-            renderBettingCards();
-            renderLeaderboard();
+            if (window.saveData) window.saveData();
+            window.renderBettingCards();
+            window.renderLeaderboard();
 
             const resBox = document.getElementById('settlement-results-box');
             const resDetails = document.getElementById('settlement-details');
@@ -862,37 +907,15 @@
 
         function resetAllData() {
             if (confirm('모든 참여자의 잔액을 10,000 P로 리셋하시겠습니까?')) {
-                players.forEach(p => { p.money = INITIAL_MONEY; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
-                saveData();
-                renderBettingCards();
-                renderLeaderboard();
-                updateAverages();
+                (window.players || []).forEach(p => { p.money = 10000; p.betAmount = 1000; p.samPredict = 0; p.kiaPredict = 0; p.locked = false; });
+                if (window.saveData) window.saveData();
+                window.renderBettingCards();
+                window.renderLeaderboard();
+                window.updateAverages();
                 document.getElementById('settlement-results-box').classList.add('hidden');
                 showAlert('전체 게임머니가 10,000 P로 초기화되었습니다.', 'info');
             }
         }
-
-        window.onload = function() {
-            document.getElementById('room-tag').textContent = `방 ID: ${roomId}`;
-            const local = localStorage.getItem(`sam_kia_${roomId}`);
-            if (local) {
-                try {
-                    const parsed = JSON.parse(local);
-                    if (parsed.liveMatch) liveMatch = parsed.liveMatch;
-                    if (parsed.players) players = parsed.players;
-                } catch(e) {}
-            }
-            
-            document.getElementById('live-sam-score').value = liveMatch.samScore;
-            document.getElementById('live-kia-score').value = liveMatch.kiaScore;
-            document.getElementById('live-inning').value = liveMatch.inning;
-
-            renderBettingCards();
-            renderLeaderboard();
-            updateAverages();
-
-            startRealtimePolling();
-        };
     </script>
 </body>
 </html>
