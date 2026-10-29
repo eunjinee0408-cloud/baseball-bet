@@ -332,67 +332,67 @@
         window.showAlert = function(msg, type) {
             type = type || 'info';
             const box = document.getElementById('alert-box');
-            const icon = document.getElementById('alert-icon');
-            const message = document.getElementById('alert-message');
-            if (!box || !icon || !message) return;
-
-            box.className = "mb-6 p-4 rounded-xl border flex items-center justify-between transition-all duration-300 ";
-
-            if (type === 'success') {
-                box.classList.add('bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300');
-                icon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
-            } else if (type === 'warning') {
-                box.classList.add('bg-amber-500/10', 'border-amber-500/30', 'text-amber-300');
-                icon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
-            } else if (type === 'error') {
-                box.classList.add('bg-red-500/10', 'border-red-500/30', 'text-red-300');
-                icon.className = "fa-solid fa-circle-xmark text-red-400 text-lg";
-            } else {
-                box.classList.add('bg-blue-500/10', 'border-blue-500/30', 'text-blue-300');
-                icon.className = "fa-solid fa-circle-info text-blue-400 text-lg";
-            }
-
-            message.textContent = msg;
-            box.classList.remove('hidden');
-            setTimeout(function() { window.hideAlert(); }, 4000);
-        };
-
-        window.hideAlert = function() {
-            const box = document.getElementById('alert-box');
-            if (box) box.classList.add('hidden');
-        };
-
-        // Save State to Local Storage
+        // Save State to Local Storage & Cloud
         window.saveData = function() {
             try {
-                localStorage.setItem('sam_kia_' + window.roomId, JSON.stringify({ liveMatch: window.liveMatch, players: window.players }));
+                const data = { liveMatch: window.liveMatch, players: window.players };
+                localStorage.setItem('sam_kia_' + window.roomId, JSON.stringify(data));
+                
+                // 인터넷 공용 클라우드 서버에 데이터 저장 (크롬/엣지/모바일 공유)
+                fetch('https://api.jsonbin.io/v3/b/' + window.roomId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                }).catch(function(e) {});
             } catch(e) {}
         };
 
-        // Manual Sync Function
+        // Manual Sync Function (Fetch from Global Cloud Server)
         window.syncFromCloud = function() {
-            try {
-                const local = localStorage.getItem('sam_kia_' + window.roomId);
-                if (local) {
-                    const parsed = JSON.parse(local);
-                    if (parsed.liveMatch) window.liveMatch = parsed.liveMatch;
-                    if (parsed.players) window.players = parsed.players;
-                }
-            } catch(e) {}
+            window.showAlert('클라우드 서버에서 최신 데이터를 가져오는 중...', 'info');
+            
+            // 인터넷 공용 클라우드 서버에서 데이터 수신
+            fetch('https://api.jsonbin.io/v3/b/' + window.roomId + '/latest')
+                .then(function(res) { return res.json(); })
+                .then(function(result) {
+                    if (result && result.record) {
+                        if (result.record.liveMatch) window.liveMatch = result.record.liveMatch;
+                        if (result.record.players) window.players = result.record.players;
+                        
+                        // 브라우저 로컬 저장소 업데이트
+                        window.saveData();
 
-            const samInput = document.getElementById('live-sam-score');
-            const kiaInput = document.getElementById('live-kia-score');
-            const innSelect = document.getElementById('live-inning');
+                        const samInput = document.getElementById('live-sam-score');
+                        const kiaInput = document.getElementById('live-kia-score');
+                        const innSelect = document.getElementById('live-inning');
 
-            if (samInput) samInput.value = window.liveMatch.samScore;
-            if (kiaInput) kiaInput.value = window.liveMatch.kiaScore;
-            if (innSelect) innSelect.value = window.liveMatch.inning;
+                        if (samInput) samInput.value = window.liveMatch.samScore;
+                        if (kiaInput) kiaInput.value = window.liveMatch.kiaScore;
+                        if (innSelect) innSelect.value = window.liveMatch.inning;
 
-            window.renderBettingCards();
-            window.renderLeaderboard();
-            window.updateAverages();
+                        window.renderBettingCards();
+                        window.renderLeaderboard();
+                        window.updateAverages();
 
-            window.showAlert('최신 스코어와 테이블 정보가 동기화되었습니다!', 'success');
+                        window.showAlert('크롬/엣지 완벽 동기화 완료!', 'success');
+                    }
+                })
+                .catch(function(err) {
+                    // 서버 연결 실패 시 로컬 데이터 백업 사용
+                    try {
+                        const local = localStorage.getItem('sam_kia_' + window.roomId);
+                        if (local) {
+                            const parsed = JSON.parse(local);
+                            if (parsed.liveMatch) window.liveMatch = parsed.liveMatch;
+                            if (parsed.players) window.players = parsed.players;
+                        }
+                    } catch(e) {}
+                    
+                    window.renderBettingCards();
+                    window.renderLeaderboard();
+                    window.updateAverages();
+                    window.showAlert('최신 로컬 데이터로 표시되었습니다.', 'warning');
+                });
         };
 
         window.addPlayer = function() {
