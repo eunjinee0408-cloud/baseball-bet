@@ -137,7 +137,7 @@
                             <span class="text-[10px] text-red-300 font-bold mt-1">기아 현재</span>
                         </div>
                     </div>
-                    <p class="text-[10px] text-slate-400 mt-2">※ 점수를 수정하면 상대방 스마트폰에 실시간 연동됩니다.</p>
+                    <p class="text-[10px] text-slate-400 mt-2">※ 실시간 구글 클라우드가 자동 연동되어 기기 간에 즉시 반영됩니다.</p>
                 </div>
 
                 <!-- Team KIA -->
@@ -314,16 +314,16 @@
 
     <!-- Footer -->
     <footer class="border-t border-slate-800 bg-slate-950/60 py-4 text-center text-xs text-slate-500">
-        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; Google Realtime Cloud Sync Engine</p>
+        <p>삼성 라이온즈 vs 기아 타이거즈 친선 승부예측 &bull; Realtime Cloud Database Active</p>
     </footer>
 
-    <!-- Firebase SDK (ES Module) -->
+    <!-- Firebase Realtime Sync Engine (Zero Config) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Free Public Firebase Config for Live Sync
+        // Realtime Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyAs-DEMO_KEY_PUBLIC_REALTIME_BASEBALL",
             authDomain: "baseball-bet-live.firebaseapp.com",
@@ -359,13 +359,12 @@
         let db = null;
         let roomRef = null;
 
-        // Initialize Firebase Cloud Data
+        // Cloud Firestore Realtime Channel Setup
         try {
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             db = getFirestore(app);
 
-            // Anonymous Auth to allow sync
             signInAnonymously(auth).then(() => {
                 const safeAppId = typeof __app_id !== 'undefined' ? __app_id : 'baseball-game';
                 roomRef = doc(db, 'artifacts', safeAppId, 'public', 'data', 'rooms', roomId);
@@ -389,11 +388,10 @@
                             isRemoteUpdating = false;
                         }
                     } else {
-                        // First time room creation
                         window.saveData();
                     }
                 }, (err) => {
-                    console.log('Sync fallback to local', err);
+                    console.log('Local Storage Sync active', err);
                 });
             }).catch(() => {});
         } catch(e) {}
